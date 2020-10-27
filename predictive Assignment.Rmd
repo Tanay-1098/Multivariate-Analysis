@@ -1,0 +1,163 @@
+---
+title: "Predictive Assignment"
+author: "Tanay Sawant 19203264"
+date: "06/11/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+### Explorator Data Analysis
+```{r}
+library(car)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(GGally)
+library(Olsrr)
+
+h=read.csv('House.csv')
+head(h)
+colnames(h)[1]<-"Price"
+h=h[-which(h$Bed==6),]
+
+```
+Q1.
+```{r}
+par(mfrow=c(1,2))
+boxplot(h$Price,main="Sales Price of the house",
+xlab="no of sales",ylab="Sales price",border="brown")
+
+hist(h$Price,freq=FALSE,xlab="x",breaks="FD")
+lines(density(h$Price),lwd=2,col="blue")
+
+summary(h$Price)
+```
+
+Q2.
+```{r}
+h$Garage=factor(h$Garage)
+h$Bed=factor(h$Bed)
+h$Bath=factor(h$Bath)
+h$School=factor(h$School)
+
+by(h$Price,h$Bath,summary)
+boxplot(h$Price~h$Bath)
+
+by(h$Price,h$Bed,summary)
+boxplot(h$Price~h$Bed)
+
+by(h$Price,h$Garage,summary)
+boxplot(h$Price~h$Garage)
+
+by(h$Price,h$School,summary)
+boxplot(h$Price~h$School)
+```
+
+Q3.
+```{r}
+ggpairs(h[c("Price","Size","Lot","Year")])
+summary(h[c("Price","Size","Lot","Year","School")])
+cor(h[,c(1,2,3,6)])
+```
+### Linear Regression
+```{r}
+h$size1=h$Size-mean(h$Size)
+summary(h$size1)
+h$Lot1=h$Lot-mean(h$Lot)
+summary(h$Lot1)
+h$Year1=h$Year-mean(h$Year)
+summary(h$Year1)
+
+mod=lm(Price~Lot1+size1+Year1+Bath+Bed+Garage+School,data=h)
+summary(mod)
+
+plot(resid(mod))
+abline(0,0)
+
+```
+
+### Type 1 ANOVA:
+```{r}
+reg=lm(Price~Lot1+size1+Year1+Bath+Bed+Garage+School,data=h)
+anova(reg)
+```
+### Type 2 ANOVA:
+```{r}
+reg1=lm(Price~Lot1+size1+Bath+Bed+Garage+School,data=h)
+anova(reg,reg1)
+```
+
+### Diagnostics
+Q1.
+```{r}
+avPlots(reg)
+crPlots(reg)
+```
+Q2.
+```{r}
+dwt(reg)
+```
+Q3.
+```{r}
+cor(h[,c(2,3,6)])
+vif(reg)
+```
+Q4.
+```{r}
+plot(fitted(reg),rstudent(reg))
+abline(h=0)
+
+par(mfrow=c(2,2))
+
+plot(h$Lot,rstudent(reg))
+plot(h$Lot,h$Price)
+
+plot(h$Size,rstudent(reg))
+plot(h$Size,h$Price)
+
+plot(h$Year,rstudent(reg))
+plot(h$Year,h$Price)
+```
+
+Q5.
+```{r}
+a=rstudent(reg)
+hist(a,freq=FALSE,breaks="FD")
+lines(density(a,na.rm=T),lwd=2,col="Blue")
+
+qqnorm(a)
+qqline(a,col=2)
+```
+
+### Leverage,Influence and Outliers
+Q1.
+```{r}
+leverage_points = as.numeric(which(hatvalues(reg)>((2*7)/length(h$Price))))
+leveragePlots(reg)
+leverage_points
+```
+Q2.
+```{r}
+influencePlot(reg)
+```
+Q3.
+```{r}
+outlierTest(reg)
+ols_plot_resid_lev(reg)
+```
+### CI,PI,Expected values
+```{r}
+a=predict(reg,level=0.95,interval='confidence')
+b=predict(reg,level=0.95,interval='prediction')
+ggplot(h,aes(y=Price,x=fitted(reg)))+geom_point()+
+  stat_smooth(aes(y=a[,'upr']),method=lm, se=F,col='blue')+
+  stat_smooth(aes(y=a[,'lwr']),method=lm, se=F,col='blue')+
+  stat_smooth(aes(y=b[,'upr']),method=lm, se=F,col='red')+
+  stat_smooth(aes(y=b[,'lwr']),method=lm, se=F,col='red')+
+  geom_line(aes(y=a[,'fit']),col='black')
+
+```
